@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5f3ee">
+  <title>Apni Dhun — Music for your focus</title>
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Apni Dhun home">
+        <img src="logo.svg" alt="" class="brand-logo">
+        <span>apni <b>dhun</b></span>
+      </a>
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="searchInput" type="search" placeholder="Search a song, artist or mood..." autocomplete="off">
+        <kbd>⌘ K</kbd>
+      </div>
+      <button class="profile" id="profileBtn" aria-label="Profile">AG</button>
+    </header>
+
+    <main class="content">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">YOUR PERSONAL DESK</p>
+          <h1 id="greeting">Good evening.</h1>
+          <p class="hero-copy">A little dhun for the work in front of you.</p>
+        </div>
+        <div class="date-card">
+          <span id="dayName"></span>
+          <strong id="dateValue"></strong>
+        </div>
+      </section>
+
+      <section class="quick-grid">
+        <button class="mode-card selected" data-query="deep focus instrumental">
+          <span class="mode-no">01</span><span class="mode-icon">◎</span>
+          <strong>Deep Focus</strong><small>For uninterrupted work</small>
+        </button>
+        <button class="mode-card" data-query="lofi study">
+          <span class="mode-no">02</span><span class="mode-icon">◌</span>
+          <strong>Study</strong><small>Quiet background energy</small>
+        </button>
+        <button class="mode-card" data-query="acoustic chill">
+          <span class="mode-no">03</span><span class="mode-icon">⌁</span>
+          <strong>Easy Desk</strong><small>Light, relaxed listening</small>
+        </button>
+        <button class="mode-card" data-query="ambient night">
+          <span class="mode-no">04</span><span class="mode-icon">☾</span>
+          <strong>After Hours</strong><small>For the late-night shift</small>
+        </button>
+      </section>
+
+      <section class="workspace">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">DISCOVER</p>
+            <h2 id="resultsTitle">Made for focus</h2>
+          </div>
+          <span id="status" class="status">Demo library</span>
+        </div>
+
+        <div id="trackList" class="track-list"></div>
+        <p id="emptyState" class="empty" hidden>No tracks found. Try another search.</p>
+      </section>
+    </main>
+
+    <footer class="player">
+      <div class="now-playing">
+        <div id="cover" class="cover">♫</div>
+        <div class="now-text">
+          <strong id="nowTitle">Choose a dhun</strong>
+          <span id="nowArtist">Your desk is waiting.</span>
+        </div>
+        <button id="likeBtn" class="icon-btn" aria-label="Like">♡</button>
+      </div>
+      <div class="controls">
+        <div class="control-row">
+          <button id="shuffleBtn" class="mini-btn" title="Shuffle">⤨</button>
+          <button id="prevBtn" class="main-btn" title="Previous">‹</button>
+          <button id="playBtn" class="play-btn" title="Play">▶</button>
+          <button id="nextBtn" class="main-btn" title="Next">›</button>
+          <button id="repeatBtn" class="mini-btn" title="Repeat">↻</button>
+        </div>
+        <div class="progress-row">
+          <span id="currentTime">0:00</span>
+          <input id="progress" type="range" min="0" max="100" value="0">
+          <span id="duration">0:00</span>
+        </div>
+      </div>
+      <div class="volume">
+        <span>◖</span>
+        <input id="volume" type="range" min="0" max="1" step=".01" value=".75">
+      </div>
+    </footer>
+  </div>
+
+  <audio id="audio" preload="metadata"></audio>
+  <script src="script.js"></script>
+</body>
+</html>
