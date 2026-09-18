@@ -14,175 +14,136 @@ const status = document.getElementById("status");
 const emptyState = document.getElementById("emptyState");
 const playerBar = document.querySelector(".player-bar");
 
-// Audius API Configuration
 const APP_NAME = "ApniDhunPlayer";
 const API_BASE = "https://discoveryprovider.audius.co/v1";
 
-// Curated Singers Database by Language (Including Bhojpuri)
+// Directory with Language and Singers
 const ARTIST_DIRECTORY = {
   "Bhojpuri": ["Pawan Singh", "Khesari Lal Yadav", "Manoj Tiwari", "Shilpi Raj", "Akshara Singh", "Arvind Akela Kallu"],
   "Hindi": ["Arijit Singh", "Shreya Ghoshal", "Jubin Nautiyal", "Neha Kakkar", "A.R. Rahman", "Sonu Nigam"],
   "Punjabi": ["Diljit Dosanjh", "Sidhu Moose Wala", "AP Dhillon", "Karan Aujla", "Guru Randhawa"],
   "English": ["Taylor Swift", "Ed Sheeran", "The Weeknd", "Drake", "Dua Lipa", "Justin Bieber"],
-  "Telugu": ["Sid Sriram", "Shreya Ghoshal", "Devi Sri Prasad", "Armaan Malik", "Anirudh Ravichander"],
-  "Tamil": ["Anirudh Ravichander", "A.R. Rahman", "Sid Sriram", "Vijay Antony", "Yuvan Shankar Raja"],
-  "Kannada": ["Sanjith Hegde", "Sonu Nigam", "Vijay Prakash", "Armaan Malik"],
-  "Bengali": ["Arijit Singh", "Anupam Roy", "Shreya Ghoshal", "Jeet Gannguli"],
-  "Marathi": ["Ajay-Atul", "Swapnil Bandodkar", "Adarsh Shinde", "Arya Ambekar"]
+  "Telugu": ["Sid Sriram", "Devi Sri Prasad", "Armaan Malik", "Anirudh Ravichander"],
+  "Tamil": ["Anirudh Ravichander", "A.R. Rahman", "Sid Sriram", "Yuvan Shankar Raja"],
+  "Kannada": ["Sanjith Hegde", "Sonu Nigam", "Vijay Prakash"],
+  "Bengali": ["Anupam Roy", "Jeet Gannguli", "Arijit Singh"],
+  "Marathi": ["Ajay-Atul", "Swapnil Bandodkar", "Adarsh Shinde"]
 };
 
-// Application State
 let currentLanguage = "Bhojpuri";
 let selectedArtist = null;
 let tracks = [];
 let index = 0, shuffle = false, repeat = false;
 
-// Initialize Structured UI Components
-function initUI() {
-  const content = document.querySelector(".content");
-  if (!content || document.getElementById("flowContainer")) return;
+// Initialize 3-Step Section UI
+function initFlowUI() {
+  const container = document.getElementById("flowContainer");
+  if (!container) return;
 
-  const flowContainer = document.createElement("div");
-  flowContainer.id = "flowContainer";
-  flowContainer.style.cssText = "margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px;";
-
-  flowContainer.innerHTML = `
-    <!-- Language Selection Tabs -->
-    <div style="background: var(--card, #1e1e24); padding: 12px 16px; border-radius: 16px; border: 1px solid var(--line, rgba(255,255,255,0.1));">
-      <div style="font-size: 11px; text-transform: uppercase; tracking: 1px; color: var(--muted, #888); margin-bottom: 8px; font-weight: 700;">1. Select Language</div>
-      <div id="langTabs" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;"></div>
+  container.innerHTML = `
+    <!-- Step 1: Language Tabs -->
+    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 18px; border-radius: 20px; margin-bottom: 16px;">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #ff3366; font-weight: 700; margin-bottom: 12px;">Step 1: Choose Language</div>
+      <div id="langChips" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none;"></div>
     </div>
 
-    <!-- Artist Cards Grid -->
-    <div style="background: var(--card, #1e1e24); padding: 16px; border-radius: 16px; border: 1px solid var(--line, rgba(255,255,255,0.1));">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <div style="font-size: 11px; text-transform: uppercase; tracking: 1px; color: var(--muted, #888); font-weight: 700;">2. Choose Singer / Artist</div>
-        <span id="activeLangLabel" style="font-size: 12px; font-weight: 600; color: #ff0055;">Bhojpuri</span>
+    <!-- Step 2: Singer Directory -->
+    <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 18px; border-radius: 20px; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #ff3366; font-weight: 700;">Step 2: Choose Singer</div>
+        <span id="activeLangTag" style="font-size: 12px; font-weight: 600; background: rgba(255, 51, 102, 0.15); color: #ff3366; padding: 4px 12px; border-radius: 12px;">Bhojpuri</span>
       </div>
-      <div id="artistGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px;"></div>
+      <div id="singerGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px;"></div>
     </div>
   `;
 
-  content.insertBefore(flowContainer, content.firstChild);
-  renderLanguageTabs();
+  renderLanguages();
   selectLanguage("Bhojpuri");
 }
 
-// Render Languages as Visual Chips
-function renderLanguageTabs() {
-  const container = document.getElementById("langTabs");
-  if (!container) return;
+function renderLanguages() {
+  const chips = document.getElementById("langChips");
+  if (!chips) return;
 
-  container.innerHTML = Object.keys(ARTIST_DIRECTORY).map(lang => `
-    <button onclick="selectLanguage('${lang}')" class="lang-btn-${lang}" style="
-      padding: 8px 16px;
-      border-radius: 20px;
-      border: 1px solid var(--line, rgba(255,255,255,0.15));
-      background: ${lang === currentLanguage ? 'linear-gradient(135deg, #ff0055, #ff5000)' : 'var(--bg, #121214)'};
-      color: #fff;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.2s ease;
-    ">${lang}</button>
-  `).join('');
+  chips.innerHTML = Object.keys(ARTIST_DIRECTORY).map(lang => {
+    const active = lang === currentLanguage;
+    return `
+      <button onclick="selectLanguage('${lang}')" style="
+        padding: 10px 20px;
+        border-radius: 30px;
+        border: 1px solid ${active ? '#ff3366' : 'rgba(255, 255, 255, 0.12)'};
+        background: ${active ? 'linear-gradient(135deg, #ff3366, #ff6633)' : 'rgba(255, 255, 255, 0.05)'};
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        box-shadow: ${active ? '0 4px 15px rgba(255, 51, 102, 0.4)' : 'none'};
+        transition: all 0.2s ease;
+      ">${lang}</button>
+    `;
+  }).join('');
 }
 
-// Language Switcher
 window.selectLanguage = function(lang) {
   currentLanguage = lang;
   selectedArtist = null;
   
-  renderLanguageTabs();
+  renderLanguages();
 
-  const label = document.getElementById("activeLangLabel");
-  if (label) label.textContent = `${lang} Artists`;
+  const tag = document.getElementById("activeLangTag");
+  if (tag) tag.textContent = `${lang} Singers`;
 
-  renderArtists(ARTIST_DIRECTORY[lang] || []);
+  renderSingers(ARTIST_DIRECTORY[lang] || []);
   
-  resultsTitle.textContent = `Popular ${lang} Tracks`;
+  resultsTitle.textContent = `Trending ${lang} Songs`;
   fetchAudiusTracks(lang);
 };
 
-// Render Artist Cards Grid with Avatars
-function renderArtists(artists) {
-  const container = document.getElementById("artistGrid");
-  if (!container) return;
+function renderSingers(singers) {
+  const grid = document.getElementById("singerGrid");
+  if (!grid) return;
 
-  container.innerHTML = artists.map(artist => {
-    const isSelected = artist === selectedArtist;
-    const initial = artist.charAt(0);
+  grid.innerHTML = singers.map(singer => {
+    const isSelected = singer === selectedArtist;
     return `
-      <div onclick="selectArtist('${artist}')" style="
-        background: ${isSelected ? 'linear-gradient(145deg, rgba(255,0,85,0.2), rgba(255,80,0,0.1))' : 'rgba(255,255,255,0.03)'};
-        border: 1px solid ${isSelected ? '#ff0055' : 'rgba(255,255,255,0.08)'};
-        border-radius: 12px;
-        padding: 12px 8px;
+      <div onclick="selectSinger('${singer}')" style="
+        background: ${isSelected ? 'linear-gradient(145deg, rgba(255, 51, 102, 0.25), rgba(255, 102, 51, 0.15))' : 'rgba(255, 255, 255, 0.03)'};
+        border: 1px solid ${isSelected ? '#ff3366' : 'rgba(255, 255, 255, 0.08)'};
+        border-radius: 16px;
+        padding: 14px 10px;
         text-align: center;
         cursor: pointer;
-        transition: transform 0.2s, border 0.2s;
-      " onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+        transition: transform 0.2s, background 0.2s;
+      " onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
         <div style="
-          width: 48px;
-          height: 48px;
+          width: 52px;
+          height: 52px;
           border-radius: 50%;
-          background: linear-gradient(135deg, #ff0055, #7928ca);
+          background: linear-gradient(135deg, #ff3366, #7928ca);
           display: flex;
           align-items: center;
           justify-content: center;
-          margin: 0 auto 8px;
-          font-weight: 700;
-          font-size: 18px;
+          margin: 0 auto 10px;
+          font-weight: 800;
+          font-size: 20px;
           color: #fff;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        ">${initial}</div>
-        <div style="font-size: 12px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${artist}</div>
+          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        ">${singer.charAt(0)}</div>
+        <div style="font-size: 12px; font-weight: 600; color: #fff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${singer}</div>
       </div>
     `;
   }).join('');
 }
 
-// Artist Selector: Displays Artist Songs
-window.selectArtist = function(artist) {
-  selectedArtist = artist;
-  renderArtists(ARTIST_DIRECTORY[currentLanguage] || []);
-  resultsTitle.textContent = `${artist} — ${currentLanguage} Songs`;
-  fetchAudiusSearch(`${artist} ${currentLanguage}`);
+window.selectSinger = function(singer) {
+  selectedArtist = singer;
+  renderSingers(ARTIST_DIRECTORY[currentLanguage] || []);
+  resultsTitle.textContent = `${singer} — ${currentLanguage} Songs`;
+  fetchAudiusSearch(`${singer} ${currentLanguage}`);
 };
 
-// Expand/Minimize Console Controls
-const volumeWrap = document.querySelector(".volume-wrap");
-if (volumeWrap && !document.getElementById("expandBtn")) {
-  const expandBtn = document.createElement("button");
-  expandBtn.id = "expandBtn";
-  expandBtn.className = "expand-btn";
-  expandBtn.innerHTML = "⤢";
-  expandBtn.title = "Toggle Fullscreen Console";
-  expandBtn.onclick = toggleConsole;
-  volumeWrap.appendChild(expandBtn);
-}
-
-function toggleConsole() {
-  if (!playerBar) return;
-  const isExpanded = playerBar.classList.toggle("expanded");
-  const expandBtn = document.getElementById("expandBtn");
-  if (expandBtn) expandBtn.innerHTML = isExpanded ? "✕" : "⤢";
-}
-
-function fmt(s) {
-  if (!Number.isFinite(s)) return "0:00";
-  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-}
-
-function escapeHtml(s = "") {
-  return s.replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-  }[c]));
-}
-
-// Track List Renderer
-function render(list = tracks) {
+function renderTrackList(list = tracks) {
   trackList.innerHTML = "";
   if (!list.length) {
     if (emptyState) emptyState.hidden = false;
@@ -193,43 +154,48 @@ function render(list = tracks) {
   list.forEach((t, i) => {
     const el = document.createElement("div");
     el.className = "track" + (i === index ? " active" : "");
-    el.style.cssText = "display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 10px; margin-bottom: 6px; background: rgba(255,255,255,0.02); transition: background 0.2s;";
+    el.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      border-radius: 14px;
+      margin-bottom: 8px;
+      background: ${i === index ? 'rgba(255, 51, 102, 0.12)' : 'rgba(255, 255, 255, 0.02)'};
+      border: 1px solid ${i === index ? 'rgba(255, 51, 102, 0.4)' : 'rgba(255, 255, 255, 0.05)'};
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
     
     el.innerHTML = `
-      <div style="font-weight: 700; font-size: 12px; width: 24px; text-align: center; opacity: 0.6;">#${i + 1}</div>
-      <div class="thumb" style="width: 40px; height: 40px; border-radius: 8px; overflow: hidden; background: #222; display: flex; align-items: center; justify-content: center;">
-        ${t.art ? `<img src="${t.art}" alt="" style="width: 100%; height: 100%; object-fit: cover;">` : "♫"}
+      <div style="font-weight: 700; font-size: 13px; width: 28px; text-align: center; color: ${i === index ? '#ff3366' : 'rgba(255,255,255,0.4)'};">#${i + 1}</div>
+      <div style="width: 44px; height: 44px; border-radius: 10px; overflow: hidden; background: #222; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        ${t.art ? `<img src="${t.art}" style="width: 100%; height: 100%; object-fit: cover;">` : "♫"}
       </div>
       <div style="flex: 1; overflow: hidden;">
-        <div class="track-title" style="font-size: 13px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(t.title)}</div>
-        <div class="track-artist" style="font-size: 11px; opacity: 0.7; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(t.artist || "Unknown artist")}</div>
+        <div style="font-size: 14px; font-weight: 600; color: #fff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(t.title)}</div>
+        <div style="font-size: 12px; color: rgba(255,255,255,0.6); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(t.artist || "Unknown artist")}</div>
       </div>
-      <div class="track-meta" style="font-size: 11px; opacity: 0.6;">${t.duration || "Full"}</div>
-      <button class="track-play" style="background: none; border: none; font-size: 14px; cursor: pointer; color: inherit;">${i === index && !audio.paused ? "❚❚" : "▶"}</button>
+      <div style="font-size: 12px; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums;">${t.duration || "Full"}</div>
+      <button class="track-play-btn" style="background: none; border: none; font-size: 16px; color: ${i === index ? '#ff3366' : '#fff'}; cursor: pointer;">${i === index && !audio.paused ? "❚❚" : "▶"}</button>
     `;
-    el.querySelector(".track-play").onclick = () => load(i, true, true);
-    el.onclick = (e) => {
-      if (!e.target.closest("button")) load(i, true, true);
-    };
+
+    el.onclick = () => loadTrack(i, true);
     trackList.appendChild(el);
   });
 }
 
-function load(i, autoplay = false, openConsole = false) {
+function loadTrack(i, autoplay = false) {
   if (!tracks[i]) return;
   index = i;
   const t = tracks[i];
   audio.src = t.url;
   nowTitle.textContent = t.title;
   nowArtist.textContent = t.artist || "Unknown artist";
-  cover.innerHTML = t.art ? `<img src="${t.art}" alt="">` : "♫";
-  render();
+  cover.innerHTML = t.art ? `<img src="${t.art}" alt="" style="width:100%;height:100%;object-fit:cover;">` : "♫";
+  renderTrackList();
   
   if (autoplay) audio.play().catch(() => {});
-  
-  if (openConsole && playerBar && !playerBar.classList.contains("expanded")) {
-    toggleConsole();
-  }
 }
 
 function playPause() {
@@ -239,16 +205,16 @@ function playPause() {
 }
 
 playBtn.onclick = playPause;
-document.getElementById("nextBtn").onclick = () => load(shuffle ? Math.floor(Math.random() * tracks.length) : (index + 1) % tracks.length, true, playerBar ? playerBar.classList.contains("expanded") : false);
-document.getElementById("prevBtn").onclick = () => load((index - 1 + tracks.length) % tracks.length, true, playerBar ? playerBar.classList.contains("expanded") : false);
+document.getElementById("nextBtn").onclick = () => loadTrack(shuffle ? Math.floor(Math.random() * tracks.length) : (index + 1) % tracks.length, true);
+document.getElementById("prevBtn").onclick = () => loadTrack((index - 1 + tracks.length) % tracks.length, true);
 
 document.getElementById("shuffleBtn").onclick = () => {
   shuffle = !shuffle;
-  document.getElementById("shuffleBtn").style.opacity = shuffle ? 1 : 0.5;
+  document.getElementById("shuffleBtn").style.opacity = shuffle ? 1 : 0.4;
 };
 document.getElementById("repeatBtn").onclick = () => {
   repeat = !repeat;
-  document.getElementById("repeatBtn").style.opacity = repeat ? 1 : 0.5;
+  document.getElementById("repeatBtn").style.opacity = repeat ? 1 : 0.4;
 };
 
 volume.oninput = () => audio.volume = volume.value;
@@ -266,46 +232,24 @@ progress.oninput = () => {
 
 audio.onplay = () => {
   playBtn.textContent = "❚❚";
-  render();
+  renderTrackList();
 };
 
 audio.onpause = () => {
   playBtn.textContent = "▶";
-  render();
+  renderTrackList();
 };
 
-// Autoplay Next Song
+// Autoplay next track on completion
 audio.onended = () => {
   if (repeat) {
-    load(index, true, playerBar ? playerBar.classList.contains("expanded") : false);
+    loadTrack(index, true);
   } else {
-    const nextIndex = shuffle 
-      ? Math.floor(Math.random() * tracks.length) 
-      : (index + 1) % tracks.length;
-    
-    load(nextIndex, true, playerBar ? playerBar.classList.contains("expanded") : false);
+    const nextIdx = shuffle ? Math.floor(Math.random() * tracks.length) : (index + 1) % tracks.length;
+    loadTrack(nextIdx, true);
   }
 };
 
-// Mode Buttons & Dynamic Hero Switcher
-const heroSection = document.querySelector(".hero");
-document.querySelectorAll(".mode-card").forEach((btn, i) => {
-  btn.onclick = () => {
-    document.querySelectorAll(".mode-card").forEach(x => x.classList.remove("selected"));
-    btn.classList.add("selected");
-
-    if (heroSection) {
-      heroSection.classList.remove("mode-corporate", "mode-study");
-      if (i === 0) heroSection.classList.add("mode-corporate");
-      if (i === 1) heroSection.classList.add("mode-study");
-    }
-
-    resultsTitle.textContent = btn.querySelector("strong").textContent;
-    fetchAudiusTracks(btn.dataset.query);
-  };
-});
-
-// Search Input Listener
 let timer;
 searchInput.oninput = () => {
   clearTimeout(timer);
@@ -320,19 +264,10 @@ searchInput.oninput = () => {
   }, 350);
 };
 
-document.addEventListener("keydown", e => {
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-    e.preventDefault();
-    searchInput.focus();
-  }
-});
-
-// Fetch Audius Trending Tracks
-async function fetchAudiusTracks(query = "Bhojpuri") {
+async function fetchAudiusTracks(query) {
   if (status) status.textContent = "Loading...";
-  const apiUrl = `${API_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`;
   try {
-    const res = await fetch(apiUrl);
+    const res = await fetch(`${API_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`);
     const data = await res.json();
     if (data.data && data.data.length > 0) {
       tracks = data.data.map(item => ({
@@ -344,24 +279,21 @@ async function fetchAudiusTracks(query = "Bhojpuri") {
       }));
       if (status) status.textContent = "Audius API";
       index = 0;
-      load(0, false, false);
+      loadTrack(0, false);
     } else {
       tracks = [];
-      render();
-      if (status) status.textContent = "No tracks found";
+      renderTrackList();
+      if (status) status.textContent = "No tracks";
     }
   } catch (err) {
-    console.error("Error fetching tracks:", err);
     if (status) status.textContent = "API Error";
   }
 }
 
-// Fetch Audius Search Tracks
 async function fetchAudiusSearch(query) {
   if (status) status.textContent = "Searching...";
-  const apiUrl = `${API_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`;
   try {
-    const res = await fetch(apiUrl);
+    const res = await fetch(`${API_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`);
     const data = await res.json();
     if (data.data && data.data.length > 0) {
       tracks = data.data.map(item => ({
@@ -373,29 +305,26 @@ async function fetchAudiusSearch(query) {
       }));
       if (status) status.textContent = "Audius API";
       index = 0;
-      load(0, false, false);
+      loadTrack(0, false);
     } else {
       tracks = [];
-      render();
-      if (status) status.textContent = "No tracks found";
+      renderTrackList();
+      if (status) status.textContent = "No tracks";
     }
   } catch (err) {
-    console.error("Error searching tracks:", err);
     if (status) status.textContent = "API Error";
   }
 }
 
-// Initial Date Setup
-const d = new Date(), hour = d.getHours();
-if (document.getElementById("greeting")) {
-  document.getElementById("greeting").textContent = hour < 12 ? "Good morning." : hour < 18 ? "Good afternoon." : "Good evening.";
-}
-if (document.getElementById("dayName")) {
-  document.getElementById("dayName").textContent = d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase();
-}
-if (document.getElementById("dateValue")) {
-  document.getElementById("dateValue").textContent = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+function fmt(s) {
+  if (!Number.isFinite(s)) return "0:00";
+  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 }
 
-// Initialize Navigation & Default View
-initUI();
+function escapeHtml(s = "") {
+  return s.replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  }[c]));
+}
+
+initFlowUI();
