@@ -13,6 +13,10 @@ const resultsTitle = document.getElementById("resultsTitle");
 const status = document.getElementById("status");
 const emptyState = document.getElementById("emptyState");
 
+// Audius API Configuration
+const APP_NAME = "ApniDhunPlayer";
+const API_BASE = "https://discoveryprovider.audius.co/v1";
+
 let tracks = [];
 let index = 0, shuffle = false, repeat = false;
 
@@ -42,7 +46,7 @@ function render(list = tracks) {
         <div class="track-title">${escapeHtml(t.title)}</div>
         <div class="track-artist">${escapeHtml(t.artist || "Unknown artist")}</div>
       </div>
-      <div class="track-meta">${t.duration || "0:30"}</div>
+      <div class="track-meta">${t.duration || "Full"}</div>
       <button class="track-play">${i === index && !audio.paused ? "❚❚" : "▶"}</button>
     `;
     el.querySelector(".track-play").onclick = () => load(i, true);
@@ -118,7 +122,7 @@ document.querySelectorAll(".mode-card").forEach(btn => btn.onclick = () => {
   document.querySelectorAll(".mode-card").forEach(x => x.classList.remove("selected"));
   btn.classList.add("selected");
   resultsTitle.textContent = btn.querySelector("strong").textContent;
-  fetchDeezerTracks(btn.dataset.query);
+  fetchAudiusTracks(btn.dataset.query);
 });
 
 // Search Input Listener with Debounce
@@ -129,10 +133,10 @@ searchInput.oninput = () => {
     const q = searchInput.value.trim();
     if (q) {
       resultsTitle.textContent = `Results for “${q}”`;
-      fetchDeezerTracks(q);
+      fetchAudiusSearch(q);
     } else {
       resultsTitle.textContent = "Made for focus";
-      fetchDeezerTracks("deep focus instrumental");
+      fetchAudiusTracks("Ambient");
     }
   }, 350);
 };
@@ -144,10 +148,10 @@ document.addEventListener("keydown", e => {
   }
 });
 
-// Deezer API Fetch Implementation
-async function fetchDeezerTracks(query) {
+// Audius Genre Trending Fetch Implementation
+async function fetchAudiusTracks(genre = "Ambient") {
   if (status) status.textContent = "Searching...";
-  const apiUrl = `https://corsproxy.io/?https://api.deezer.com/search?q=${encodeURIComponent(query)}`;
+  const apiUrl = `${API_BASE}/tracks/trending?genre=${encodeURIComponent(genre)}&app_name=${APP_NAME}`;
 
   try {
     const res = await fetch(apiUrl);
@@ -156,13 +160,12 @@ async function fetchDeezerTracks(query) {
     if (data.data && data.data.length > 0) {
       tracks = data.data.map(item => ({
         title: item.title,
-        artist: item.artist.name,
-        url: item.preview,
-        art: item.album.cover_medium,
+        artist: item.user.name,
+        url: `${API_BASE}/tracks/${item.id}/stream?app_name=${APP_NAME}`,
+        art: item.artwork ? item.artwork["480x480"] : null,
         duration: fmt(item.duration)
       }));
-
-      if (status) status.textContent = "Deezer API";
+      if (status) status.textContent = "Audius API";
       index = 0;
       load(0, false);
     } else {
@@ -171,16 +174,47 @@ async function fetchDeezerTracks(query) {
       if (status) status.textContent = "No tracks";
     }
   } catch (err) {
-    console.error("Error fetching Deezer tracks:", err);
+    console.error("Error fetching Audius tracks:", err);
     if (status) status.textContent = "API Error";
   }
 }
 
-// Initial Date & Load Setup
+// Audius Search Fetch Implementation
+async function fetchAudiusSearch(query) {
+  if (status) status.textContent = "Searching...";
+  const apiUrl = `${API_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`;
+
+  try {
+    const res = await fetch(apiUrl);
+    const data = await res.json();
+
+    if (data.data && data.data.length > 0) {
+      tracks = data.data.map(item => ({
+        title: item.title,
+        artist: item.user.name,
+        url: `${API_BASE}/tracks/${item.id}/stream?app_name=${APP_NAME}`,
+        art: item.artwork ? item.artwork["480x480"] : null,
+        duration: fmt(item.duration)
+      }));
+      if (status) status.textContent = "Audius API";
+      index = 0;
+      load(0, false);
+    } else {
+      tracks = [];
+      render();
+      if (status) status.textContent = "No tracks";
+    }
+  } catch (err) {
+    console.error("Error searching Audius tracks:", err);
+    if (status) status.textContent = "API Error";
+  }
+}
+
+// Initial Date Setup
 const d = new Date(), hour = d.getHours();
 document.getElementById("greeting").textContent = hour < 12 ? "Good morning." : hour < 18 ? "Good afternoon." : "Good evening.";
 document.getElementById("dayName").textContent = d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase();
 document.getElementById("dateValue").textContent = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 
 // Load Default Focus Tracks on Page Load
-fetchDeezerTracks("deep focus instrumental");
+fetchAudiusTracks("Ambient");
