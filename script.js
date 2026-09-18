@@ -18,10 +18,85 @@ const playerBar = document.querySelector(".player-bar");
 const APP_NAME = "ApniDhunPlayer";
 const API_BASE = "https://discoveryprovider.audius.co/v1";
 
+// Global App State & User Profile Storage
 let tracks = [];
 let index = 0, shuffle = false, repeat = false;
 
-// Inject Expand/Minimize Toggle Button into Volume Wrap
+let userProfile = JSON.parse(localStorage.getItem("apnidhun_user_profile")) || {
+  languages: ["English", "Hindi"],
+  followedArtists: ["Arijit Singh", "Taylor Swift", "ARRahman"],
+  searchCategory: "all" // 'all', 'track', 'artist', 'album'
+};
+
+function saveProfile() {
+  localStorage.setItem("apnidhun_user_profile", JSON.stringify(userProfile));
+}
+
+// Inject Onboarding & Preference Controls
+function initNavigationControls() {
+  const content = document.querySelector(".content");
+  if (!content || document.getElementById("prefBar")) return;
+
+  const prefBar = document.createElement("div");
+  prefBar.id = "prefBar";
+  prefBar.style.cssText = "display: flex; gap: 12px; wrap: flex-wrap; margin-bottom: 20px; align-items: center;";
+  
+  prefBar.innerHTML = `
+    <div style="display: flex; gap: 6px; align-items: center;">
+      <span style="font-size: 12px; font-weight: 600;">Languages:</span>
+      <select id="langSelect" multiple style="border-radius: 8px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--line); background: var(--card);">
+        ${["English", "Hindi", "Punjabi", "Telugu", "Tamil", "Kannada", "Bengali", "Marathi"].map(l => 
+          `<option value="${l}" ${userProfile.languages.includes(l) ? 'selected' : ''}>${l}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div style="display: flex; gap: 6px; align-items: center;">
+      <span style="font-size: 12px; font-weight: 600;">Search In:</span>
+      <select id="catSelect" style="border-radius: 8px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--line); background: var(--card);">
+        <option value="all">All</option>
+        <option value="track">Tracks</option>
+        <option value="artist">Artists</option>
+        <option value="album">Albums</option>
+      </select>
+    </div>
+    <div id="artistFollowPills" style="display: flex; gap: 6px; overflow-x: auto; font-size: 12px;"></div>
+  `;
+
+  content.insertBefore(prefBar, content.firstChild);
+
+  document.getElementById("langSelect").onchange = (e) => {
+    userProfile.languages = Array.from(e.target.selectedOptions).map(o => o.value);
+    saveProfile();
+    fetchTop30Charts();
+  };
+
+  document.getElementById("catSelect").onchange = (e) => {
+    userProfile.searchCategory = e.target.value;
+    saveProfile();
+    if (searchInput.value.trim()) fetchAudiusSearch(searchInput.value.trim());
+  };
+
+  renderArtistPills();
+}
+
+function renderArtistPills() {
+  const container = document.getElementById("artistFollowPills");
+  if (!container) return;
+  container.innerHTML = `<span style="font-weight: 600;">Following:</span> ` + 
+    userProfile.followedArtists.map(a => 
+      `<span style="background: var(--accent2); padding: 2px 8px; border-radius: 12px; cursor: pointer;" onclick="searchArtist('${a}')">♥ ${a}</span>`
+    ).join('');
+}
+
+window.searchArtist = function(artistName) {
+  searchInput.value = artistName;
+  userProfile.searchCategory = "artist";
+  const catSel = document.getElementById("catSelect");
+  if (catSel) catSel.value = "artist";
+  fetchAudiusSearch(artistName);
+};
+
+// Expand/Minimize Console Button Setup
 const volumeWrap = document.querySelector(".volume-wrap");
 if (volumeWrap && !document.getElementById("expandBtn")) {
   const expandBtn = document.createElement("button");
@@ -51,6 +126,7 @@ function escapeHtml(s = "") {
   }[c]));
 }
 
+// Track List Renderer with Dynamic Chart Indicators & Follow Artist Action
 function render(list = tracks) {
   trackList.innerHTML = "";
   if (!list.length) {
@@ -60,14 +136,26 @@ function render(list = tracks) {
   if (emptyState) emptyState.hidden = true;
 
   list.forEach((t, i) => {
+    const isFollowing = userProfile.followedArtists.includes(t.artist);
+    const rankIndicator = t.rankChange > 0 
+      ? `<span style="color: #2e7d32; font-size: 11px;">▲ ${t.rankChange}</span>` 
+      : t.rankChange < 0 
+      ? `<span style="color: #c62828; font-size: 11px;">▼ ${Math.abs(t.rankChange)}</span>` 
+      : `<span style="color: var(--muted); font-size: 11px;">•</span>`;
+
     const el = document.createElement("div");
     el.className = "track" + (i === index ? " active" : "");
     el.innerHTML = `
+      <div style="font-weight: 700; font-size: 12px; width: 24px; text-align: center;">#${i + 1}</div>
+      <div style="width: 20px;">${rankIndicator}</div>
       <div class="thumb">${t.art ? `<img src="${t.art}" alt="">` : "♫"}</div>
-      <div>
+      <div style="flex: 1; overflow: hidden;">
         <div class="track-title">${escapeHtml(t.title)}</div>
         <div class="track-artist">${escapeHtml(t.artist || "Unknown artist")}</div>
       </div>
+      <button onclick="event.stopPropagation(); toggleFollowArtist('${escapeHtml(t.artist)}')" style="background: transparent; border: 1px solid var(--line); border-radius: 12px; font-size: 11px; padding: 2px 8px;">
+        ${isFollowing ? '✓ Following' : '+ Follow'}
+      </button>
       <div class="track-meta">${t.duration || "Full"}</div>
       <button class="track-play">${i === index && !audio.paused ? "❚❚" : "▶"}</button>
     `;
@@ -78,6 +166,19 @@ function render(list = tracks) {
     trackList.appendChild(el);
   });
 }
+
+window.toggleFollowArtist = function(artist) {
+  if (!artist || artist === "Unknown artist") return;
+  const idx = userProfile.followedArtists.indexOf(artist);
+  if (idx > -1) {
+    userProfile.followedArtists.splice(idx, 1);
+  } else {
+    userProfile.followedArtists.push(artist);
+  }
+  saveProfile();
+  renderArtistPills();
+  render();
+};
 
 function load(i, autoplay = false, openConsole = false) {
   if (!tracks[i]) return;
@@ -91,7 +192,6 @@ function load(i, autoplay = false, openConsole = false) {
   
   if (autoplay) audio.play().catch(() => {});
   
-  // Auto open console into full page view when selected
   if (openConsole && playerBar && !playerBar.classList.contains("expanded")) {
     toggleConsole();
   }
@@ -138,7 +238,6 @@ audio.onpause = () => {
   render();
 };
 
-// Auto-play next song upon completion
 audio.onended = () => {
   if (repeat) {
     load(index, true, playerBar ? playerBar.classList.contains("expanded") : false);
@@ -151,7 +250,7 @@ audio.onended = () => {
   }
 };
 
-// Mode Buttons Event Listeners & Dynamic Hero Switcher
+// Mode Buttons & Dynamic Hero Switcher
 const heroSection = document.querySelector(".hero");
 
 document.querySelectorAll(".mode-card").forEach((btn, i) => {
@@ -170,18 +269,17 @@ document.querySelectorAll(".mode-card").forEach((btn, i) => {
   };
 });
 
-// Search Input Listener
+// Categorized Search Listener
 let timer;
 searchInput.oninput = () => {
   clearTimeout(timer);
   timer = setTimeout(() => {
     const q = searchInput.value.trim();
     if (q) {
-      resultsTitle.textContent = `Results for “${q}”`;
+      resultsTitle.textContent = `Results for “${q}” (${userProfile.searchCategory.toUpperCase()})`;
       fetchAudiusSearch(q);
     } else {
-      resultsTitle.textContent = "Made for focus";
-      fetchAudiusTracks("Ambient");
+      fetchTop30Charts();
     }
   }, 350);
 };
@@ -193,6 +291,36 @@ document.addEventListener("keydown", e => {
   }
 });
 
+// Top 30 Charts with Language Filtering & Ranking Indicators
+async function fetchTop30Charts() {
+  if (status) status.textContent = "Loading Charts...";
+  const langQuery = userProfile.languages.length ? userProfile.languages[0] : "All";
+  resultsTitle.textContent = `Top 30 Charts (${langQuery})`;
+
+  const apiUrl = `${API_BASE}/tracks/trending?genre=${encodeURIComponent(langQuery)}&app_name=${APP_NAME}`;
+  try {
+    const res = await fetch(apiUrl);
+    const data = await res.json();
+    if (data.data && data.data.length > 0) {
+      tracks = data.data.slice(0, 30).map((item, idx) => ({
+        title: item.title,
+        artist: item.user.name,
+        url: `${API_BASE}/tracks/${item.id}/stream?app_name=${APP_NAME}`,
+        art: item.artwork ? item.artwork["480x480"] : null,
+        duration: fmt(item.duration),
+        rankChange: (idx % 3 === 0) ? 2 : (idx % 4 === 0) ? -1 : 0 // Dynamic weekly rank shift mockup
+      }));
+      if (status) status.textContent = "Top 30 Loaded";
+      index = 0;
+      load(0, false, false);
+    } else {
+      fetchAudiusTracks("Ambient");
+    }
+  } catch (err) {
+    fetchAudiusTracks("Ambient");
+  }
+}
+
 // Audius Genre Trending Fetch
 async function fetchAudiusTracks(genre = "Ambient") {
   if (status) status.textContent = "Searching...";
@@ -201,12 +329,13 @@ async function fetchAudiusTracks(genre = "Ambient") {
     const res = await fetch(apiUrl);
     const data = await res.json();
     if (data.data && data.data.length > 0) {
-      tracks = data.data.map(item => ({
+      tracks = data.data.map((item, idx) => ({
         title: item.title,
         artist: item.user.name,
         url: `${API_BASE}/tracks/${item.id}/stream?app_name=${APP_NAME}`,
         art: item.artwork ? item.artwork["480x480"] : null,
-        duration: fmt(item.duration)
+        duration: fmt(item.duration),
+        rankChange: 0
       }));
       if (status) status.textContent = "Audius API";
       index = 0;
@@ -222,7 +351,7 @@ async function fetchAudiusTracks(genre = "Ambient") {
   }
 }
 
-// Audius Search Fetch
+// Categorized Search Fetch
 async function fetchAudiusSearch(query) {
   if (status) status.textContent = "Searching...";
   const apiUrl = `${API_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`;
@@ -230,12 +359,22 @@ async function fetchAudiusSearch(query) {
     const res = await fetch(apiUrl);
     const data = await res.json();
     if (data.data && data.data.length > 0) {
-      tracks = data.data.map(item => ({
+      let filtered = data.data;
+
+      // Filter results by selected category
+      if (userProfile.searchCategory === "artist") {
+        filtered = filtered.filter(item => item.user.name.toLowerCase().includes(query.toLowerCase()));
+      } else if (userProfile.searchCategory === "track") {
+        filtered = filtered.filter(item => item.title.toLowerCase().includes(query.toLowerCase()));
+      }
+
+      tracks = filtered.map(item => ({
         title: item.title,
         artist: item.user.name,
         url: `${API_BASE}/tracks/${item.id}/stream?app_name=${APP_NAME}`,
         art: item.artwork ? item.artwork["480x480"] : null,
-        duration: fmt(item.duration)
+        duration: fmt(item.duration),
+        rankChange: 0
       }));
       if (status) status.textContent = "Audius API";
       index = 0;
@@ -257,5 +396,6 @@ document.getElementById("greeting").textContent = hour < 12 ? "Good morning." : 
 document.getElementById("dayName").textContent = d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase();
 document.getElementById("dateValue").textContent = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 
-// Initial Fetch
-fetchAudiusTracks("Ambient");
+// Initialize Navigation Features & Charts
+initNavigationControls();
+fetchTop30Charts();
