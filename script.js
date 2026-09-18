@@ -12,6 +12,7 @@ const duration = document.getElementById("duration");
 const resultsTitle = document.getElementById("resultsTitle");
 const status = document.getElementById("status");
 const emptyState = document.getElementById("emptyState");
+const playerBar = document.querySelector(".player-bar");
 
 // Audius API Configuration
 const APP_NAME = "ApniDhunPlayer";
@@ -19,6 +20,25 @@ const API_BASE = "https://discoveryprovider.audius.co/v1";
 
 let tracks = [];
 let index = 0, shuffle = false, repeat = false;
+
+// Inject Expand/Minimize Toggle Button into Volume Wrap
+const volumeWrap = document.querySelector(".volume-wrap");
+if (volumeWrap && !document.getElementById("expandBtn")) {
+  const expandBtn = document.createElement("button");
+  expandBtn.id = "expandBtn";
+  expandBtn.className = "expand-btn";
+  expandBtn.innerHTML = "⤢";
+  expandBtn.title = "Toggle Fullscreen Console";
+  expandBtn.onclick = toggleConsole;
+  volumeWrap.appendChild(expandBtn);
+}
+
+function toggleConsole() {
+  if (!playerBar) return;
+  const isExpanded = playerBar.classList.toggle("expanded");
+  const expandBtn = document.getElementById("expandBtn");
+  if (expandBtn) expandBtn.innerHTML = isExpanded ? "✕" : "⤢";
+}
 
 function fmt(s) {
   if (!Number.isFinite(s)) return "0:00";
@@ -51,15 +71,15 @@ function render(list = tracks) {
       <div class="track-meta">${t.duration || "Full"}</div>
       <button class="track-play">${i === index && !audio.paused ? "❚❚" : "▶"}</button>
     `;
-    el.querySelector(".track-play").onclick = () => load(i, true);
+    el.querySelector(".track-play").onclick = () => load(i, true, true);
     el.onclick = (e) => {
-      if (!e.target.closest("button")) load(i, true);
+      if (!e.target.closest("button")) load(i, true, true);
     };
     trackList.appendChild(el);
   });
 }
 
-function load(i, autoplay = false) {
+function load(i, autoplay = false, openConsole = false) {
   if (!tracks[i]) return;
   index = i;
   const t = tracks[i];
@@ -68,7 +88,13 @@ function load(i, autoplay = false) {
   nowArtist.textContent = t.artist || "Unknown artist";
   cover.innerHTML = t.art ? `<img src="${t.art}" alt="">` : "♫";
   render();
+  
   if (autoplay) audio.play().catch(() => {});
+  
+  // Auto open console into full page view when selected
+  if (openConsole && playerBar && !playerBar.classList.contains("expanded")) {
+    toggleConsole();
+  }
 }
 
 function playPause() {
@@ -78,8 +104,8 @@ function playPause() {
 }
 
 playBtn.onclick = playPause;
-document.getElementById("nextBtn").onclick = () => load(shuffle ? Math.floor(Math.random() * tracks.length) : (index + 1) % tracks.length, true);
-document.getElementById("prevBtn").onclick = () => load((index - 1 + tracks.length) % tracks.length, true);
+document.getElementById("nextBtn").onclick = () => load(shuffle ? Math.floor(Math.random() * tracks.length) : (index + 1) % tracks.length, true, playerBar ? playerBar.classList.contains("expanded") : false);
+document.getElementById("prevBtn").onclick = () => load((index - 1 + tracks.length) % tracks.length, true, playerBar ? playerBar.classList.contains("expanded") : false);
 document.getElementById("shuffleBtn").onclick = () => {
   shuffle = !shuffle;
   document.getElementById("shuffleBtn").style.opacity = shuffle ? 1 : 0.5;
@@ -112,12 +138,20 @@ audio.onpause = () => {
   render();
 };
 
+// Auto-play next song upon completion
 audio.onended = () => {
-  if (repeat) load(index, true);
-  else document.getElementById("nextBtn").click();
+  if (repeat) {
+    load(index, true, playerBar ? playerBar.classList.contains("expanded") : false);
+  } else {
+    const nextIndex = shuffle 
+      ? Math.floor(Math.random() * tracks.length) 
+      : (index + 1) % tracks.length;
+    
+    load(nextIndex, true, playerBar ? playerBar.classList.contains("expanded") : false);
+  }
 };
 
-// Mode Buttons Event Listeners & Dynamic Hero Cover Switcher
+// Mode Buttons Event Listeners & Dynamic Hero Switcher
 const heroSection = document.querySelector(".hero");
 
 document.querySelectorAll(".mode-card").forEach((btn, i) => {
@@ -125,7 +159,6 @@ document.querySelectorAll(".mode-card").forEach((btn, i) => {
     document.querySelectorAll(".mode-card").forEach(x => x.classList.remove("selected"));
     btn.classList.add("selected");
 
-    // Switch dynamic hero cover background
     if (heroSection) {
       heroSection.classList.remove("mode-corporate", "mode-study");
       if (i === 0) heroSection.classList.add("mode-corporate");
@@ -137,7 +170,7 @@ document.querySelectorAll(".mode-card").forEach((btn, i) => {
   };
 });
 
-// Search Input Listener with Debounce
+// Search Input Listener
 let timer;
 searchInput.oninput = () => {
   clearTimeout(timer);
@@ -160,7 +193,7 @@ document.addEventListener("keydown", e => {
   }
 });
 
-// Audius Genre Trending Fetch Implementation
+// Audius Genre Trending Fetch
 async function fetchAudiusTracks(genre = "Ambient") {
   if (status) status.textContent = "Searching...";
   const apiUrl = `${API_BASE}/tracks/trending?genre=${encodeURIComponent(genre)}&app_name=${APP_NAME}`;
@@ -177,7 +210,7 @@ async function fetchAudiusTracks(genre = "Ambient") {
       }));
       if (status) status.textContent = "Audius API";
       index = 0;
-      load(0, false);
+      load(0, false, false);
     } else {
       tracks = [];
       render();
@@ -189,7 +222,7 @@ async function fetchAudiusTracks(genre = "Ambient") {
   }
 }
 
-// Audius Search Fetch Implementation
+// Audius Search Fetch
 async function fetchAudiusSearch(query) {
   if (status) status.textContent = "Searching...";
   const apiUrl = `${API_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`;
@@ -206,7 +239,7 @@ async function fetchAudiusSearch(query) {
       }));
       if (status) status.textContent = "Audius API";
       index = 0;
-      load(0, false);
+      load(0, false, false);
     } else {
       tracks = [];
       render();
@@ -224,5 +257,5 @@ document.getElementById("greeting").textContent = hour < 12 ? "Good morning." : 
 document.getElementById("dayName").textContent = d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase();
 document.getElementById("dateValue").textContent = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 
-// Load Default Focus Tracks on Page Load
+// Initial Fetch
 fetchAudiusTracks("Ambient");
