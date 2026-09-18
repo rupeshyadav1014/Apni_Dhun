@@ -402,6 +402,7 @@ h1 {
               0 0 0 1px rgba(255, 255, 255, 0.05) inset;
   color: #f5f3ee;
   z-index: 100;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .now-playing {
@@ -422,6 +423,7 @@ h1 {
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   flex-shrink: 0;
+  transition: all 0.35s ease;
 }
 
 #cover img {
@@ -544,4 +546,99 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 .volume-wrap input {
   width: 90px;
+}
+
+.expand-btn {
+  background: transparent;
+  border: none;
+  color: #a0a098;
+  font-size: 16px;
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+  margin-left: 8px;
+}
+
+.expand-btn:hover {
+  color: #ffffff;
+  transform: scale(1.15);
+}
+
+/* =========================================
+   FULL-SCREEN CONSOLE EXPANDED STATE
+   ========================================= */
+
+.player-bar.expanded {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  border: none;
+  background: rgba(15, 16, 14, 0.96);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  padding: 60px 8vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 999;
+  box-shadow: none;
+  left: 0;
+  transform: none;
+}
+
+.player-bar.expanded .expand-btn {
+  position: absolute;
+  top: 32px;
+  right: 32px;
+  font-size: 24px;
+  color: #ffffff;
+}
+
+.player-bar.expanded .now-playing {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 24px;
+  margin-top: auto;
+}
+
+.player-bar.expanded #cover {
+  width: min(340px, 65vw);
+  height: min(340px, 65vw);
+  border-radius: 24px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+}
+
+.player-bar.expanded #nowTitle {
+  font-size: clamp(22px, 3vw, 32px);
+}
+
+.player-bar.expanded #nowArtist {
+  font-size: 16px;
+  margin-top: 6px;
+}
+
+.player-bar.expanded .player-controls {
+  width: min(600px, 85vw);
+  gap: 24px;
+  margin-bottom: auto;
+  margin-top: 30px;
+}
+
+.player-bar.expanded .controls-btns {
+  gap: 28px;
+}
+
+.player-bar.expanded #playBtn {
+  width: 64px;
+  height: 64px;
+  font-size: 22px;
+}
+
+.player-bar.expanded .volume-wrap {
+  width: min(300px, 60vw);
+  justify-content: center;
+  margin-bottom: 20px;
 }
