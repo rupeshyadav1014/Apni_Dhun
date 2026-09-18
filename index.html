@@ -3,105 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#f5f3ee">
   <title>Apni Dhun — Music for your focus</title>
-  <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <a class="brand" href="#" aria-label="Apni Dhun home">
-        <img src="logo.svg" alt="" class="brand-logo">
-        <span>apni <b>dhun</b></span>
-      </a>
-      <div class="search-wrap">
-        <span class="search-icon">⌕</span>
-        <input id="searchInput" type="search" placeholder="Search a song, artist or mood..." autocomplete="off">
-        <kbd>⌘ K</kbd>
+  <div class="app">
+    <!-- Top Navigation Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo"><span>♪</span></div>
+        <span class="brand-name">apni dhun</span>
       </div>
-      <button class="profile" id="profileBtn" aria-label="Profile">AG</button>
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search a song, artist or mood..." autocomplete="off" />
+        <span class="search-shortcut">⌘ K</span>
+      </div>
+      <div class="profile-avatar">AG</div>
     </header>
 
+    <!-- Main Content Area -->
     <main class="content">
-      <section class="hero">
-        <div>
-          <p class="eyebrow">YOUR PERSONAL DESK</p>
-          <h1 id="greeting">Good evening.</h1>
-          <p class="hero-copy">A little dhun for the work in front of you.</p>
-        </div>
-        <div class="date-card">
-          <span id="dayName"></span>
-          <strong id="dateValue"></strong>
-        </div>
-      </section>
+      <!-- Dynamic Step-by-Step Selection Container -->
+      <section id="flowContainer"></section>
 
-      <section class="quick-grid">
-        <button class="mode-card selected" data-query="Ambient">
-          <span class="mode-no">01</span><span class="mode-icon">◎</span>
-          <strong>Deep Focus</strong><small>For uninterrupted work</small>
-        </button>
-        <button class="mode-card" data-query="Lofi">
-          <span class="mode-no">02</span><span class="mode-icon">◌</span>
-          <strong>Study</strong><small>Quiet background energy</small>
-        </button>
-        <button class="mode-card" data-query="Acoustic">
-          <span class="mode-no">03</span><span class="mode-icon">⌁</span>
-          <strong>Easy Desk</strong><small>Light, relaxed listening</small>
-        </button>
-        <button class="mode-card" data-query="Chill">
-          <span class="mode-no">04</span><span class="mode-icon">☾</span>
-          <strong>After Hours</strong><small>For the late-night shift</small>
-        </button>
-      </section>
-
-      <section class="workspace">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">DISCOVER</p>
-            <h2 id="resultsTitle">Made for focus</h2>
-          </div>
-          <span id="status" class="status">Audius API</span>
+      <!-- Track Listing Section -->
+      <section class="tracks-section">
+        <div class="section-header">
+          <h2 id="resultsTitle">Select a language to get started</h2>
+          <span id="status" class="status-badge">Audius API</span>
         </div>
         <div id="trackList" class="track-list"></div>
-        <p id="emptyState" class="empty" hidden>No tracks found. Try another search.</p>
+        <div id="emptyState" class="empty-state" hidden>No tracks found for this selection.</div>
       </section>
     </main>
 
-    <!-- FLOATING AUDIO CONSOLE PLAYER -->
+    <!-- Bottom Audio Player Console -->
     <div class="player-bar">
-      <div class="now-playing">
-        <div id="cover">♫</div>
+      <div class="player-left">
+        <div id="cover" class="cover-art">♫</div>
         <div class="track-info">
-          <div id="nowTitle">Select a track</div>
-          <div id="nowArtist">Apni Dhun Player</div>
+          <div id="nowTitle" class="now-title">Select a track</div>
+          <div id="nowArtist" class="now-artist">Apni Dhun</div>
         </div>
       </div>
 
-      <div class="player-controls">
-        <div class="controls-btns">
-          <button id="shuffleBtn" title="Shuffle">⤨</button>
-          <button id="prevBtn" title="Previous">‹</button>
-          <button id="playBtn" title="Play/Pause">▶</button>
-          <button id="nextBtn" title="Next">›</button>
-          <button id="repeatBtn" title="Repeat">↻</button>
+      <div class="player-center">
+        <div class="player-controls">
+          <button id="shuffleBtn" class="control-btn" title="Shuffle">🔀</button>
+          <button id="prevBtn" class="control-btn" title="Previous">⏮</button>
+          <button id="playBtn" class="play-btn" title="Play/Pause">▶</button>
+          <button id="nextBtn" class="control-btn" title="Next">⏭</button>
+          <button id="repeatBtn" class="control-btn" title="Repeat">🔁</button>
         </div>
-
         <div class="progress-wrap">
-          <span id="currentTime">0:00</span>
-          <input type="range" id="progress" value="0" min="0" max="100">
-          <span id="duration">0:00</span>
+          <span id="currentTime" class="time-label">0:00</span>
+          <input type="range" id="progress" min="0" max="100" value="0" class="slider" />
+          <span id="duration" class="time-label">0:00</span>
         </div>
       </div>
 
-      <div class="volume-wrap">
-        <span>◖</span>
-        <input type="range" id="volume" min="0" max="1" step="0.01" value="0.75">
+      <div class="player-right">
+        <div class="volume-wrap">
+          <span class="volume-icon">🔊</span>
+          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.75" class="slider" />
+        </div>
       </div>
     </div>
   </div>
 
-  <audio id="audio" preload="metadata"></audio>
+  <audio id="audio"></audio>
   <script src="script.js"></script>
 </body>
 </html>
