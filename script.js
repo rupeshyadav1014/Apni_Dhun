@@ -26,7 +26,9 @@ function fmt(s) {
 }
 
 function escapeHtml(s = "") {
-  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]));
+  return s.replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  }[c]));
 }
 
 function render(list = tracks) {
@@ -78,12 +80,10 @@ function playPause() {
 playBtn.onclick = playPause;
 document.getElementById("nextBtn").onclick = () => load(shuffle ? Math.floor(Math.random() * tracks.length) : (index + 1) % tracks.length, true);
 document.getElementById("prevBtn").onclick = () => load((index - 1 + tracks.length) % tracks.length, true);
-
 document.getElementById("shuffleBtn").onclick = () => {
   shuffle = !shuffle;
   document.getElementById("shuffleBtn").style.opacity = shuffle ? 1 : 0.5;
 };
-
 document.getElementById("repeatBtn").onclick = () => {
   repeat = !repeat;
   document.getElementById("repeatBtn").style.opacity = repeat ? 1 : 0.5;
@@ -117,12 +117,24 @@ audio.onended = () => {
   else document.getElementById("nextBtn").click();
 };
 
-// Mode Buttons Event Listeners
-document.querySelectorAll(".mode-card").forEach(btn => btn.onclick = () => {
-  document.querySelectorAll(".mode-card").forEach(x => x.classList.remove("selected"));
-  btn.classList.add("selected");
-  resultsTitle.textContent = btn.querySelector("strong").textContent;
-  fetchAudiusTracks(btn.dataset.query);
+// Mode Buttons Event Listeners & Dynamic Hero Cover Switcher
+const heroSection = document.querySelector(".hero");
+
+document.querySelectorAll(".mode-card").forEach((btn, i) => {
+  btn.onclick = () => {
+    document.querySelectorAll(".mode-card").forEach(x => x.classList.remove("selected"));
+    btn.classList.add("selected");
+
+    // Switch dynamic hero cover background
+    if (heroSection) {
+      heroSection.classList.remove("mode-corporate", "mode-study");
+      if (i === 0) heroSection.classList.add("mode-corporate");
+      if (i === 1) heroSection.classList.add("mode-study");
+    }
+
+    resultsTitle.textContent = btn.querySelector("strong").textContent;
+    fetchAudiusTracks(btn.dataset.query);
+  };
 });
 
 // Search Input Listener with Debounce
@@ -152,11 +164,9 @@ document.addEventListener("keydown", e => {
 async function fetchAudiusTracks(genre = "Ambient") {
   if (status) status.textContent = "Searching...";
   const apiUrl = `${API_BASE}/tracks/trending?genre=${encodeURIComponent(genre)}&app_name=${APP_NAME}`;
-
   try {
     const res = await fetch(apiUrl);
     const data = await res.json();
-
     if (data.data && data.data.length > 0) {
       tracks = data.data.map(item => ({
         title: item.title,
@@ -183,11 +193,9 @@ async function fetchAudiusTracks(genre = "Ambient") {
 async function fetchAudiusSearch(query) {
   if (status) status.textContent = "Searching...";
   const apiUrl = `${API_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`;
-
   try {
     const res = await fetch(apiUrl);
     const data = await res.json();
-
     if (data.data && data.data.length > 0) {
       tracks = data.data.map(item => ({
         title: item.title,
