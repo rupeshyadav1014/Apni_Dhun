@@ -18,85 +18,140 @@ const playerBar = document.querySelector(".player-bar");
 const APP_NAME = "ApniDhunPlayer";
 const API_BASE = "https://discoveryprovider.audius.co/v1";
 
-// Global App State & User Profile Storage
+// Curated Singers Database by Language (Including Bhojpuri)
+const ARTIST_DIRECTORY = {
+  "Bhojpuri": ["Pawan Singh", "Khesari Lal Yadav", "Manoj Tiwari", "Shilpi Raj", "Akshara Singh", "Arvind Akela Kallu"],
+  "Hindi": ["Arijit Singh", "Shreya Ghoshal", "Jubin Nautiyal", "Neha Kakkar", "A.R. Rahman", "Sonu Nigam"],
+  "Punjabi": ["Diljit Dosanjh", "Sidhu Moose Wala", "AP Dhillon", "Karan Aujla", "Guru Randhawa"],
+  "English": ["Taylor Swift", "Ed Sheeran", "The Weeknd", "Drake", "Dua Lipa", "Justin Bieber"],
+  "Telugu": ["Sid Sriram", "Shreya Ghoshal", "Devi Sri Prasad", "Armaan Malik", "Anirudh Ravichander"],
+  "Tamil": ["Anirudh Ravichander", "A.R. Rahman", "Sid Sriram", "Vijay Antony", "Yuvan Shankar Raja"],
+  "Kannada": ["Sanjith Hegde", "Sonu Nigam", "Vijay Prakash", "Armaan Malik"],
+  "Bengali": ["Arijit Singh", "Anupam Roy", "Shreya Ghoshal", "Jeet Gannguli"],
+  "Marathi": ["Ajay-Atul", "Swapnil Bandodkar", "Adarsh Shinde", "Arya Ambekar"]
+};
+
+// Application State
+let currentLanguage = "Bhojpuri";
+let selectedArtist = null;
 let tracks = [];
 let index = 0, shuffle = false, repeat = false;
 
-let userProfile = JSON.parse(localStorage.getItem("apnidhun_user_profile")) || {
-  languages: ["English", "Hindi"],
-  followedArtists: ["Arijit Singh", "Taylor Swift", "ARRahman"],
-  searchCategory: "all" // 'all', 'track', 'artist', 'album'
-};
-
-function saveProfile() {
-  localStorage.setItem("apnidhun_user_profile", JSON.stringify(userProfile));
-}
-
-// Inject Onboarding & Preference Controls
-function initNavigationControls() {
+// Initialize Structured UI Components
+function initUI() {
   const content = document.querySelector(".content");
-  if (!content || document.getElementById("prefBar")) return;
+  if (!content || document.getElementById("flowContainer")) return;
 
-  const prefBar = document.createElement("div");
-  prefBar.id = "prefBar";
-  prefBar.style.cssText = "display: flex; gap: 12px; wrap: flex-wrap; margin-bottom: 20px; align-items: center;";
-  
-  prefBar.innerHTML = `
-    <div style="display: flex; gap: 6px; align-items: center;">
-      <span style="font-size: 12px; font-weight: 600;">Languages:</span>
-      <select id="langSelect" multiple style="border-radius: 8px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--line); background: var(--card);">
-        ${["English", "Hindi", "Punjabi", "Telugu", "Tamil", "Kannada", "Bengali", "Marathi"].map(l => 
-          `<option value="${l}" ${userProfile.languages.includes(l) ? 'selected' : ''}>${l}</option>`
-        ).join('')}
-      </select>
+  const flowContainer = document.createElement("div");
+  flowContainer.id = "flowContainer";
+  flowContainer.style.cssText = "margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px;";
+
+  flowContainer.innerHTML = `
+    <!-- Language Selection Tabs -->
+    <div style="background: var(--card, #1e1e24); padding: 12px 16px; border-radius: 16px; border: 1px solid var(--line, rgba(255,255,255,0.1));">
+      <div style="font-size: 11px; text-transform: uppercase; tracking: 1px; color: var(--muted, #888); margin-bottom: 8px; font-weight: 700;">1. Select Language</div>
+      <div id="langTabs" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;"></div>
     </div>
-    <div style="display: flex; gap: 6px; align-items: center;">
-      <span style="font-size: 12px; font-weight: 600;">Search In:</span>
-      <select id="catSelect" style="border-radius: 8px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--line); background: var(--card);">
-        <option value="all">All</option>
-        <option value="track">Tracks</option>
-        <option value="artist">Artists</option>
-        <option value="album">Albums</option>
-      </select>
+
+    <!-- Artist Cards Grid -->
+    <div style="background: var(--card, #1e1e24); padding: 16px; border-radius: 16px; border: 1px solid var(--line, rgba(255,255,255,0.1));">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="font-size: 11px; text-transform: uppercase; tracking: 1px; color: var(--muted, #888); font-weight: 700;">2. Choose Singer / Artist</div>
+        <span id="activeLangLabel" style="font-size: 12px; font-weight: 600; color: #ff0055;">Bhojpuri</span>
+      </div>
+      <div id="artistGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px;"></div>
     </div>
-    <div id="artistFollowPills" style="display: flex; gap: 6px; overflow-x: auto; font-size: 12px;"></div>
   `;
 
-  content.insertBefore(prefBar, content.firstChild);
-
-  document.getElementById("langSelect").onchange = (e) => {
-    userProfile.languages = Array.from(e.target.selectedOptions).map(o => o.value);
-    saveProfile();
-    fetchTop30Charts();
-  };
-
-  document.getElementById("catSelect").onchange = (e) => {
-    userProfile.searchCategory = e.target.value;
-    saveProfile();
-    if (searchInput.value.trim()) fetchAudiusSearch(searchInput.value.trim());
-  };
-
-  renderArtistPills();
+  content.insertBefore(flowContainer, content.firstChild);
+  renderLanguageTabs();
+  selectLanguage("Bhojpuri");
 }
 
-function renderArtistPills() {
-  const container = document.getElementById("artistFollowPills");
+// Render Languages as Visual Chips
+function renderLanguageTabs() {
+  const container = document.getElementById("langTabs");
   if (!container) return;
-  container.innerHTML = `<span style="font-weight: 600;">Following:</span> ` + 
-    userProfile.followedArtists.map(a => 
-      `<span style="background: var(--accent2); padding: 2px 8px; border-radius: 12px; cursor: pointer;" onclick="searchArtist('${a}')">♥ ${a}</span>`
-    ).join('');
+
+  container.innerHTML = Object.keys(ARTIST_DIRECTORY).map(lang => `
+    <button onclick="selectLanguage('${lang}')" class="lang-btn-${lang}" style="
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--line, rgba(255,255,255,0.15));
+      background: ${lang === currentLanguage ? 'linear-gradient(135deg, #ff0055, #ff5000)' : 'var(--bg, #121214)'};
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    ">${lang}</button>
+  `).join('');
 }
 
-window.searchArtist = function(artistName) {
-  searchInput.value = artistName;
-  userProfile.searchCategory = "artist";
-  const catSel = document.getElementById("catSelect");
-  if (catSel) catSel.value = "artist";
-  fetchAudiusSearch(artistName);
+// Language Switcher
+window.selectLanguage = function(lang) {
+  currentLanguage = lang;
+  selectedArtist = null;
+  
+  renderLanguageTabs();
+
+  const label = document.getElementById("activeLangLabel");
+  if (label) label.textContent = `${lang} Artists`;
+
+  renderArtists(ARTIST_DIRECTORY[lang] || []);
+  
+  resultsTitle.textContent = `Popular ${lang} Tracks`;
+  fetchAudiusTracks(lang);
 };
 
-// Expand/Minimize Console Button Setup
+// Render Artist Cards Grid with Avatars
+function renderArtists(artists) {
+  const container = document.getElementById("artistGrid");
+  if (!container) return;
+
+  container.innerHTML = artists.map(artist => {
+    const isSelected = artist === selectedArtist;
+    const initial = artist.charAt(0);
+    return `
+      <div onclick="selectArtist('${artist}')" style="
+        background: ${isSelected ? 'linear-gradient(145deg, rgba(255,0,85,0.2), rgba(255,80,0,0.1))' : 'rgba(255,255,255,0.03)'};
+        border: 1px solid ${isSelected ? '#ff0055' : 'rgba(255,255,255,0.08)'};
+        border-radius: 12px;
+        padding: 12px 8px;
+        text-align: center;
+        cursor: pointer;
+        transition: transform 0.2s, border 0.2s;
+      " onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+        <div style="
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #ff0055, #7928ca);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 8px;
+          font-weight: 700;
+          font-size: 18px;
+          color: #fff;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        ">${initial}</div>
+        <div style="font-size: 12px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${artist}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Artist Selector: Displays Artist Songs
+window.selectArtist = function(artist) {
+  selectedArtist = artist;
+  renderArtists(ARTIST_DIRECTORY[currentLanguage] || []);
+  resultsTitle.textContent = `${artist} — ${currentLanguage} Songs`;
+  fetchAudiusSearch(`${artist} ${currentLanguage}`);
+};
+
+// Expand/Minimize Console Controls
 const volumeWrap = document.querySelector(".volume-wrap");
 if (volumeWrap && !document.getElementById("expandBtn")) {
   const expandBtn = document.createElement("button");
@@ -126,7 +181,7 @@ function escapeHtml(s = "") {
   }[c]));
 }
 
-// Track List Renderer with Dynamic Chart Indicators & Follow Artist Action
+// Track List Renderer
 function render(list = tracks) {
   trackList.innerHTML = "";
   if (!list.length) {
@@ -136,28 +191,21 @@ function render(list = tracks) {
   if (emptyState) emptyState.hidden = true;
 
   list.forEach((t, i) => {
-    const isFollowing = userProfile.followedArtists.includes(t.artist);
-    const rankIndicator = t.rankChange > 0 
-      ? `<span style="color: #2e7d32; font-size: 11px;">▲ ${t.rankChange}</span>` 
-      : t.rankChange < 0 
-      ? `<span style="color: #c62828; font-size: 11px;">▼ ${Math.abs(t.rankChange)}</span>` 
-      : `<span style="color: var(--muted); font-size: 11px;">•</span>`;
-
     const el = document.createElement("div");
     el.className = "track" + (i === index ? " active" : "");
+    el.style.cssText = "display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 10px; margin-bottom: 6px; background: rgba(255,255,255,0.02); transition: background 0.2s;";
+    
     el.innerHTML = `
-      <div style="font-weight: 700; font-size: 12px; width: 24px; text-align: center;">#${i + 1}</div>
-      <div style="width: 20px;">${rankIndicator}</div>
-      <div class="thumb">${t.art ? `<img src="${t.art}" alt="">` : "♫"}</div>
-      <div style="flex: 1; overflow: hidden;">
-        <div class="track-title">${escapeHtml(t.title)}</div>
-        <div class="track-artist">${escapeHtml(t.artist || "Unknown artist")}</div>
+      <div style="font-weight: 700; font-size: 12px; width: 24px; text-align: center; opacity: 0.6;">#${i + 1}</div>
+      <div class="thumb" style="width: 40px; height: 40px; border-radius: 8px; overflow: hidden; background: #222; display: flex; align-items: center; justify-content: center;">
+        ${t.art ? `<img src="${t.art}" alt="" style="width: 100%; height: 100%; object-fit: cover;">` : "♫"}
       </div>
-      <button onclick="event.stopPropagation(); toggleFollowArtist('${escapeHtml(t.artist)}')" style="background: transparent; border: 1px solid var(--line); border-radius: 12px; font-size: 11px; padding: 2px 8px;">
-        ${isFollowing ? '✓ Following' : '+ Follow'}
-      </button>
-      <div class="track-meta">${t.duration || "Full"}</div>
-      <button class="track-play">${i === index && !audio.paused ? "❚❚" : "▶"}</button>
+      <div style="flex: 1; overflow: hidden;">
+        <div class="track-title" style="font-size: 13px; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(t.title)}</div>
+        <div class="track-artist" style="font-size: 11px; opacity: 0.7; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${escapeHtml(t.artist || "Unknown artist")}</div>
+      </div>
+      <div class="track-meta" style="font-size: 11px; opacity: 0.6;">${t.duration || "Full"}</div>
+      <button class="track-play" style="background: none; border: none; font-size: 14px; cursor: pointer; color: inherit;">${i === index && !audio.paused ? "❚❚" : "▶"}</button>
     `;
     el.querySelector(".track-play").onclick = () => load(i, true, true);
     el.onclick = (e) => {
@@ -166,19 +214,6 @@ function render(list = tracks) {
     trackList.appendChild(el);
   });
 }
-
-window.toggleFollowArtist = function(artist) {
-  if (!artist || artist === "Unknown artist") return;
-  const idx = userProfile.followedArtists.indexOf(artist);
-  if (idx > -1) {
-    userProfile.followedArtists.splice(idx, 1);
-  } else {
-    userProfile.followedArtists.push(artist);
-  }
-  saveProfile();
-  renderArtistPills();
-  render();
-};
 
 function load(i, autoplay = false, openConsole = false) {
   if (!tracks[i]) return;
@@ -206,6 +241,7 @@ function playPause() {
 playBtn.onclick = playPause;
 document.getElementById("nextBtn").onclick = () => load(shuffle ? Math.floor(Math.random() * tracks.length) : (index + 1) % tracks.length, true, playerBar ? playerBar.classList.contains("expanded") : false);
 document.getElementById("prevBtn").onclick = () => load((index - 1 + tracks.length) % tracks.length, true, playerBar ? playerBar.classList.contains("expanded") : false);
+
 document.getElementById("shuffleBtn").onclick = () => {
   shuffle = !shuffle;
   document.getElementById("shuffleBtn").style.opacity = shuffle ? 1 : 0.5;
@@ -238,6 +274,7 @@ audio.onpause = () => {
   render();
 };
 
+// Autoplay Next Song
 audio.onended = () => {
   if (repeat) {
     load(index, true, playerBar ? playerBar.classList.contains("expanded") : false);
@@ -252,7 +289,6 @@ audio.onended = () => {
 
 // Mode Buttons & Dynamic Hero Switcher
 const heroSection = document.querySelector(".hero");
-
 document.querySelectorAll(".mode-card").forEach((btn, i) => {
   btn.onclick = () => {
     document.querySelectorAll(".mode-card").forEach(x => x.classList.remove("selected"));
@@ -269,17 +305,17 @@ document.querySelectorAll(".mode-card").forEach((btn, i) => {
   };
 });
 
-// Categorized Search Listener
+// Search Input Listener
 let timer;
 searchInput.oninput = () => {
   clearTimeout(timer);
   timer = setTimeout(() => {
     const q = searchInput.value.trim();
     if (q) {
-      resultsTitle.textContent = `Results for “${q}” (${userProfile.searchCategory.toUpperCase()})`;
+      resultsTitle.textContent = `Search Results for “${q}”`;
       fetchAudiusSearch(q);
     } else {
-      fetchTop30Charts();
+      selectLanguage(currentLanguage);
     }
   }, 350);
 };
@@ -291,51 +327,20 @@ document.addEventListener("keydown", e => {
   }
 });
 
-// Top 30 Charts with Language Filtering & Ranking Indicators
-async function fetchTop30Charts() {
-  if (status) status.textContent = "Loading Charts...";
-  const langQuery = userProfile.languages.length ? userProfile.languages[0] : "All";
-  resultsTitle.textContent = `Top 30 Charts (${langQuery})`;
-
-  const apiUrl = `${API_BASE}/tracks/trending?genre=${encodeURIComponent(langQuery)}&app_name=${APP_NAME}`;
+// Fetch Audius Trending Tracks
+async function fetchAudiusTracks(query = "Bhojpuri") {
+  if (status) status.textContent = "Loading...";
+  const apiUrl = `${API_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`;
   try {
     const res = await fetch(apiUrl);
     const data = await res.json();
     if (data.data && data.data.length > 0) {
-      tracks = data.data.slice(0, 30).map((item, idx) => ({
+      tracks = data.data.map(item => ({
         title: item.title,
         artist: item.user.name,
         url: `${API_BASE}/tracks/${item.id}/stream?app_name=${APP_NAME}`,
         art: item.artwork ? item.artwork["480x480"] : null,
-        duration: fmt(item.duration),
-        rankChange: (idx % 3 === 0) ? 2 : (idx % 4 === 0) ? -1 : 0 // Dynamic weekly rank shift mockup
-      }));
-      if (status) status.textContent = "Top 30 Loaded";
-      index = 0;
-      load(0, false, false);
-    } else {
-      fetchAudiusTracks("Ambient");
-    }
-  } catch (err) {
-    fetchAudiusTracks("Ambient");
-  }
-}
-
-// Audius Genre Trending Fetch
-async function fetchAudiusTracks(genre = "Ambient") {
-  if (status) status.textContent = "Searching...";
-  const apiUrl = `${API_BASE}/tracks/trending?genre=${encodeURIComponent(genre)}&app_name=${APP_NAME}`;
-  try {
-    const res = await fetch(apiUrl);
-    const data = await res.json();
-    if (data.data && data.data.length > 0) {
-      tracks = data.data.map((item, idx) => ({
-        title: item.title,
-        artist: item.user.name,
-        url: `${API_BASE}/tracks/${item.id}/stream?app_name=${APP_NAME}`,
-        art: item.artwork ? item.artwork["480x480"] : null,
-        duration: fmt(item.duration),
-        rankChange: 0
+        duration: fmt(item.duration)
       }));
       if (status) status.textContent = "Audius API";
       index = 0;
@@ -343,15 +348,15 @@ async function fetchAudiusTracks(genre = "Ambient") {
     } else {
       tracks = [];
       render();
-      if (status) status.textContent = "No tracks";
+      if (status) status.textContent = "No tracks found";
     }
   } catch (err) {
-    console.error("Error fetching Audius tracks:", err);
+    console.error("Error fetching tracks:", err);
     if (status) status.textContent = "API Error";
   }
 }
 
-// Categorized Search Fetch
+// Fetch Audius Search Tracks
 async function fetchAudiusSearch(query) {
   if (status) status.textContent = "Searching...";
   const apiUrl = `${API_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`;
@@ -359,22 +364,12 @@ async function fetchAudiusSearch(query) {
     const res = await fetch(apiUrl);
     const data = await res.json();
     if (data.data && data.data.length > 0) {
-      let filtered = data.data;
-
-      // Filter results by selected category
-      if (userProfile.searchCategory === "artist") {
-        filtered = filtered.filter(item => item.user.name.toLowerCase().includes(query.toLowerCase()));
-      } else if (userProfile.searchCategory === "track") {
-        filtered = filtered.filter(item => item.title.toLowerCase().includes(query.toLowerCase()));
-      }
-
-      tracks = filtered.map(item => ({
+      tracks = data.data.map(item => ({
         title: item.title,
         artist: item.user.name,
         url: `${API_BASE}/tracks/${item.id}/stream?app_name=${APP_NAME}`,
         art: item.artwork ? item.artwork["480x480"] : null,
-        duration: fmt(item.duration),
-        rankChange: 0
+        duration: fmt(item.duration)
       }));
       if (status) status.textContent = "Audius API";
       index = 0;
@@ -382,20 +377,25 @@ async function fetchAudiusSearch(query) {
     } else {
       tracks = [];
       render();
-      if (status) status.textContent = "No tracks";
+      if (status) status.textContent = "No tracks found";
     }
   } catch (err) {
-    console.error("Error searching Audius tracks:", err);
+    console.error("Error searching tracks:", err);
     if (status) status.textContent = "API Error";
   }
 }
 
 // Initial Date Setup
 const d = new Date(), hour = d.getHours();
-document.getElementById("greeting").textContent = hour < 12 ? "Good morning." : hour < 18 ? "Good afternoon." : "Good evening.";
-document.getElementById("dayName").textContent = d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase();
-document.getElementById("dateValue").textContent = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+if (document.getElementById("greeting")) {
+  document.getElementById("greeting").textContent = hour < 12 ? "Good morning." : hour < 18 ? "Good afternoon." : "Good evening.";
+}
+if (document.getElementById("dayName")) {
+  document.getElementById("dayName").textContent = d.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase();
+}
+if (document.getElementById("dateValue")) {
+  document.getElementById("dateValue").textContent = d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+}
 
-// Initialize Navigation Features & Charts
-initNavigationControls();
-fetchTop30Charts();
+// Initialize Navigation & Default View
+initUI();
